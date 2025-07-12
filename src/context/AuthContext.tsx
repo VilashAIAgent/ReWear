@@ -1,13 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  User as FirebaseUser
-} from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
+import { supabase } from '../config/supabase';
 import { User } from '../types';
 import toast from 'react-hot-toast';
 
@@ -35,19 +27,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function register(email: string, password: string, name: string) {
     try {
-      const { user } = await createUserWithEmailAndPassword(auth, email, password);
-      
-      const userData = {
-        uid: user.uid,
-        name,
+      const { data, error } = await supabase.auth.signUp({
         email,
-        role: 'user',
-        points: 100, // Starting points
-        createdAt: serverTimestamp()
-      };
+        password,
+        options: {
+          data: {
+            name: name
+          }
+        }
+      });
 
-      await setDoc(doc(db, 'users', user.uid), userData);
-      return user;
+      if (error) throw error;
+
+      if (data.user) {
+        // Create user profile
+        const { error: profileError } = await supabase
+          .from('users')
+          .insert([
+            {
+              id: data.user.id,
+              name,
+              email,
+              role: 'user',
+              points: 100,
+              created_at: new Date().toISOString()
+            }
+          ]);
+
+        if (profileError) throw profileError;
+      }
+
+      return data;
     } catch (error: any) {
       console.error('Registration error:', error);
       throw error;
@@ -56,8 +66,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function login(email: string, password: string) {
     try {
-      const result = await signInWithEmailAndPassword(auth, email, password);
-      return result;
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) throw error;
+      return data;
     } catch (error: any) {
       console.error('Login error:', error);
       throw error;
@@ -65,48 +80,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function logout() {
-    await signOut(auth);
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
   }
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
-      if (firebaseUser) {
-        try {
-          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setCurrentUser({
-              ...userData,
-              createdAt: userData.createdAt?.toDate() || new Date()
-            } as User);
-          } else {
-            // User document doesn't exist, create it
-            const userData = {
-              uid: firebaseUser.uid,
-              name: firebaseUser.displayName || 'User',
-              email: firebaseUser.email || '',
-              role: 'user',
-              points: 100,
-              createdAt: serverTimestamp()
-            };
-            await setDoc(doc(db, 'users', firebaseUser.uid), userData);
-            setCurrentUser({
-              ...userData,
-              createdAt: new Date()
-            } as User);
-          }
-        } catch (error) {
-          console.error('Error fetching user data:', error);
-          toast.error('Error loading user profile');
-        }
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        fetchUserProfile(session.user.id);
       } else {
-        setCurrentUser(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    return unsubscribe;
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session?.user) {
+          await fetchUserProfile(session.user.id);
+        } else {
+          setCurrentUser(null);
+          setLoading(false);
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  async function fetchUserProfile(userId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) throw error;
+
+      setCurrentUser({
+        uid: data.id,
+        name: data.name,
+        email: data.email,
+        role: data.role,
+        points: data.points,
+        avatarUrl: data.avatar_url,
+        createdAt: new Date(data.created_at)
+      });
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      toast.error('Error loading user profile');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const value = {
     currentUser,

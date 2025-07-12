@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getClothingItem, createSwapRequest, redeemWithPoints } from '../services/firestore';
+import { getClothingItem, createSwapRequest, redeemWithPoints } from '../services/supabase';
 import { ClothingItem } from '../types';
 import { ArrowLeft, Heart, Share2, Star, MapPin, Calendar, Package, Users, Zap } from 'lucide-react';
 import toast from 'react-hot-toast';

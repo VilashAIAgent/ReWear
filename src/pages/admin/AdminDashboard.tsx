@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { getAllUsers, getClothingItems } from '../../services/firestore';
+import { getAllUsers, getClothingItems } from '../../services/supabase';
 import { User, ClothingItem } from '../../types';
 import { Users, Package, TrendingUp, AlertTriangle, Eye, Edit, Trash2, Shield } from 'lucide-react';
 import { Navigate } from 'react-router-dom';

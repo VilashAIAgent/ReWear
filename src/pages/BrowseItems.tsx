@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getClothingItems } from '../services/firestore';
+import { getClothingItems } from '../services/supabase';
 import { ClothingItem } from '../types';
 import { Search, Filter, Grid, List, Heart, Eye } from 'lucide-react';
 import ItemCard from '../components/ItemCard';

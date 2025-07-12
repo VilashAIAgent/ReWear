@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { createClothingItem, uploadImages, generateAIImage } from '../services/firestore';
+import { createClothingItem, uploadImages, generateAIImage } from '../services/supabase';
 import { Upload, X, Plus, Wand2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
